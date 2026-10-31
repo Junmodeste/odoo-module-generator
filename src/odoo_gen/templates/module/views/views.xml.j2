@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="{{ spec.model_file }}_view_list" model="ir.ui.view">
+        <field name="name">{{ spec.model }}.list</field>
+        <field name="model">{{ spec.model }}</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+{%- for field in spec.fields if field.type not in ("text", "html") %}
+                <field name="{{ field.name }}"/>
+{%- endfor %}
+            </list>
+        </field>
+    </record>
+
+    <record id="{{ spec.model_file }}_view_form" model="ir.ui.view">
+        <field name="name">{{ spec.model }}.form</field>
+        <field name="model">{{ spec.model }}</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+{%- for field in spec.fields %}
+                        <field name="{{ field.name }}"/>
+{%- endfor %}
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="{{ spec.model_file }}_view_search" model="ir.ui.view">
+        <field name="name">{{ spec.model }}.search</field>
+        <field name="model">{{ spec.model }}</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+{%- for field in spec.fields if field.type in ("char", "text") %}
+                <field name="{{ field.name }}"/>
+{%- endfor %}
+            </search>
+        </field>
+    </record>
+
+    <record id="{{ spec.model_file }}_action" model="ir.actions.act_window">
+        <field name="name">{{ spec.title | e }}</field>
+        <field name="res_model">{{ spec.model }}</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="{{ spec.technical_name }}_menu_root" name="{{ spec.title | e }}" action="{{ spec.model_file }}_action"/>
+</odoo>

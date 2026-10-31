@@ -1,0 +1,10 @@
+from odoo.tests import TransactionCase, tagged
+
+
+@tagged("post_install", "-at_install")
+class Test{{ spec.model_class }}(TransactionCase):
+
+    def test_create(self):
+        record = self.env["{{ spec.model }}"].create({"name": "Test"})
+        self.assertEqual(record.name, "Test")
+        self.assertIn(record, self.env["{{ spec.model }}"].search([("name", "=", "Test")]))

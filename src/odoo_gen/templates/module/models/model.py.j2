@@ -1,0 +1,11 @@
+from odoo import fields, models
+
+
+class {{ spec.model_class }}(models.Model):
+    _name = "{{ spec.model }}"
+    _description = {{ spec.model_description | pyrepr }}
+
+    name = fields.Char(required=True)
+{%- for field in spec.fields %}
+    {{ field.name }} = fields.{{ field.odoo_class }}(string={{ field.label | pyrepr }})
+{%- endfor %}
