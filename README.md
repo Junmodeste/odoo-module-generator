@@ -1,5 +1,6 @@
 # Odoo Module Generator
 
+[![tests](https://github.com/Junmodeste/odoo-module-generator/actions/workflows/tests.yml/badge.svg)](https://github.com/Junmodeste/odoo-module-generator/actions/workflows/tests.yml)
 [![Odoo 19](https://img.shields.io/badge/Odoo-19.0-714B67)](https://www.odoo.com)
 [![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](LICENSE)
 

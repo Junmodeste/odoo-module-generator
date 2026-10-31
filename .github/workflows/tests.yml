@@ -1,0 +1,47 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install ".[test]" ruff
+      - run: ruff check .
+      - run: pytest
+
+  odoo-install:
+    # Real check: a generated module must install and pass its test on Odoo 19 Community.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: >-
+          odoo-gen new library_demo --no-input -o addons
+          --title 'Bibliothèque "démo"' --model library.book
+          --field pages:integer --field price:float --field available:boolean
+          --field published_on:date --field summary:text
+      - name: Install and test on odoo:19 + postgres:16
+        run: |
+          docker network create odoo
+          docker run -d --name db --network odoo \
+            -e POSTGRES_USER=odoo -e POSTGRES_PASSWORD=odoo -e POSTGRES_DB=postgres postgres:16
+          until docker exec db pg_isready -U odoo; do sleep 1; done
+          # The image entrypoint reads the database settings from HOST/USER/PASSWORD.
+          docker run --rm --network odoo -e HOST=db -e USER=odoo -e PASSWORD=odoo \
+            -v "$PWD/addons:/mnt/extra-addons:ro" odoo:19 \
+            odoo -d test -i library_demo --test-enable --test-tags=/library_demo --stop-after-init 2>&1 | tee odoo.log
+          grep -E "0 failed, 0 error\(s\) of [1-9][0-9]* tests" odoo.log
