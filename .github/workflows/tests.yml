@@ -21,8 +21,11 @@ jobs:
       - run: pytest
 
   odoo-install:
-    # Real check: a generated module must install and pass its test on Odoo 19 Community.
+    # Real check: a generated module must install and pass its test on each supported Odoo Community version.
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        odoo-version: ["17", "18", "19"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,7 +37,8 @@ jobs:
           --title 'Bibliothèque "démo"' --model library.book
           --field pages:integer --field price:float --field available:boolean
           --field published_on:date --field summary:text
-      - name: Install and test on odoo:19 + postgres:16
+          --odoo-version ${{ matrix.odoo-version }}.0
+      - name: Install and test on odoo:${{ matrix.odoo-version }} + postgres:16
         run: |
           docker network create odoo
           docker run -d --name db --network odoo \
@@ -42,6 +46,6 @@ jobs:
           until docker exec db pg_isready -U odoo; do sleep 1; done
           # The image entrypoint reads the database settings from HOST/USER/PASSWORD.
           docker run --rm --network odoo -e HOST=db -e USER=odoo -e PASSWORD=odoo \
-            -v "$PWD/addons:/mnt/extra-addons:ro" odoo:19 \
+            -v "$PWD/addons:/mnt/extra-addons:ro" odoo:${{ matrix.odoo-version }} \
             odoo -d test -i library_demo --test-enable --test-tags=/library_demo --stop-after-init 2>&1 | tee odoo.log
           grep -E "0 failed, 0 error\(s\) of [1-9][0-9]* tests" odoo.log

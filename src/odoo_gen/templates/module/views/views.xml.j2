@@ -4,12 +4,12 @@
         <field name="name">{{ spec.model }}.list</field>
         <field name="model">{{ spec.model }}</field>
         <field name="arch" type="xml">
-            <list>
+            <{{ spec.list_tag }}>
                 <field name="name"/>
 {%- for field in spec.fields if field.type not in ("text", "html") %}
                 <field name="{{ field.name }}"/>
 {%- endfor %}
-            </list>
+            </{{ spec.list_tag }}>
         </field>
     </record>
 
@@ -46,7 +46,7 @@
     <record id="{{ spec.model_file }}_action" model="ir.actions.act_window">
         <field name="name">{{ spec.title | e }}</field>
         <field name="res_model">{{ spec.model }}</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">{{ spec.list_tag }},form</field>
     </record>
 
     <menuitem id="{{ spec.technical_name }}_menu_root" name="{{ spec.title | e }}" action="{{ spec.model_file }}_action"/>

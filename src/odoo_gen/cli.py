@@ -3,13 +3,20 @@
     odoo-gen new library_demo                      # questions interactives
     odoo-gen new library_demo --no-input \\
         --title "Library" --author "Me" --model library.book \\
-        --field pages:integer --field price:float
+        --field pages:integer --field price:float --odoo-version 17.0
 """
 import argparse
 import sys
 
 from . import __version__
-from .generator import FIELD_TYPES, GeneratorError, ModuleSpec, generate, parse_field
+from .generator import (
+    FIELD_TYPES,
+    ODOO_VERSIONS,
+    GeneratorError,
+    ModuleSpec,
+    generate,
+    parse_field,
+)
 
 
 def _ask(prompt, default):
@@ -36,6 +43,7 @@ def build_spec(args, interactive):
         "title": args.title or name.replace("_", " ").title(),
         "author": args.author or "Your Name",
         "model": args.model or name.replace("_", "."),
+        "odoo_version": args.odoo_version or ODOO_VERSIONS[-1],
     }
     fields = [parse_field(f) for f in args.field]
     if interactive:
@@ -46,15 +54,18 @@ def build_spec(args, interactive):
             defaults["author"] = _ask("Author", defaults["author"])
         if not args.model:
             defaults["model"] = _ask("Model name", defaults["model"])
+        if not args.odoo_version:
+            defaults["odoo_version"] = _ask("Odoo version", defaults["odoo_version"])
         if not args.field:
             fields = _ask_fields()
     if "." not in defaults["model"]:
         defaults["model"] = f"{name}.{defaults['model']}"
-    return ModuleSpec(name, defaults["title"], defaults["author"], defaults["model"], fields)
+    return ModuleSpec(name, defaults["title"], defaults["author"], defaults["model"], fields,
+                      defaults["odoo_version"])
 
 
 def make_parser():
-    parser = argparse.ArgumentParser(prog="odoo-gen", description="Odoo 19 module skeleton generator.")
+    parser = argparse.ArgumentParser(prog="odoo-gen", description="Odoo module skeleton generator.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
     new = sub.add_parser("new", help="create a new module")
@@ -62,6 +73,9 @@ def make_parser():
     new.add_argument("--title", help="human readable name")
     new.add_argument("--author", help="manifest author")
     new.add_argument("--model", help="model name, e.g. library.book")
+    # --version est déjà pris par la version de l'outil, d'où --odoo-version.
+    new.add_argument("--odoo-version", choices=ODOO_VERSIONS,
+                     help=f"target Odoo version (default: {ODOO_VERSIONS[-1]})")
     new.add_argument("--field", action="append", default=[], metavar="NAME:TYPE",
                      help=f"extra field (repeatable); types: {', '.join(FIELD_TYPES)}")
     new.add_argument("-o", "--output", default=".", help="parent directory (default: current)")

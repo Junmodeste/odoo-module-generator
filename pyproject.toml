@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odoo-module-generator"
-version = "0.1.0"
-description = "Generate an Odoo 19 module skeleton from the command line"
+version = "0.2.0"
+description = "Generate an Odoo 17/18/19 module skeleton from the command line"
 readme = "README.md"
 license = "LGPL-3.0-only"
 authors = [{ name = "Koffi Modeste Junior" }]

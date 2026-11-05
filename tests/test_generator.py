@@ -75,6 +75,30 @@ def test_access_csv(tmp_path, spec):
     }]
 
 
+@pytest.mark.parametrize("version, tag", [("17.0", "tree"), ("18.0", "list"), ("19.0", "list")])
+def test_views_and_manifest_follow_odoo_version(tmp_path, spec, version, tag):
+    spec.odoo_version = version
+    path = generate(spec, tmp_path)
+    manifest = ast.literal_eval((path / "__manifest__.py").read_text(encoding="utf-8"))
+    assert manifest["version"] == f"{version}.1.0.0"
+    root = ET.parse(path / "views/library_book_views.xml").getroot()
+    other = "list" if tag == "tree" else "tree"
+    assert root.find(f".//{tag}") is not None and root.find(f".//{other}") is None
+    assert root.find(".//field[@name='view_mode']").text == f"{tag},form"
+    assert f"Odoo {version[:2]} module" in (path / "README.md").read_text(encoding="utf-8")
+
+
+def test_cli_odoo_version(tmp_path):
+    assert cli.main(["new", "library_demo", "--no-input", "-o", str(tmp_path), "--odoo-version", "17.0"]) == 0
+    manifest = ast.literal_eval((tmp_path / "library_demo/__manifest__.py").read_text(encoding="utf-8"))
+    assert manifest["version"] == "17.0.1.0.0"
+
+
+def test_cli_rejects_unknown_odoo_version(tmp_path):
+    with pytest.raises(SystemExit):
+        cli.main(["new", "library_demo", "--no-input", "-o", str(tmp_path), "--odoo-version", "16.0"])
+
+
 @pytest.mark.parametrize("text", ["pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char"])
 def test_invalid_fields(text):
     with pytest.raises(GeneratorError):
@@ -85,6 +109,7 @@ def test_invalid_fields(text):
     {"technical_name": "Library"},
     {"model": "book"},
     {"title": " "},
+    {"odoo_version": "16.0"},
     {"fields": [parse_field("pages:integer"), parse_field("pages:float")]},
 ])
 def test_invalid_spec(tmp_path, spec, kwargs):
@@ -121,11 +146,12 @@ def test_cli_error_exit_code(tmp_path, capsys):
 
 
 def test_cli_interactive(tmp_path, monkeypatch):
-    answers = iter(["Ma Bibliothèque", "Koffi", "library.book", "pages:integer", "oops", "price:float", ""])
+    answers = iter(["Ma Bibliothèque", "Koffi", "library.book", "17.0", "pages:integer", "oops", "price:float", ""])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     assert cli.main(["new", "library_demo", "-o", str(tmp_path)]) == 0
     manifest = ast.literal_eval((tmp_path / "library_demo/__manifest__.py").read_text(encoding="utf-8"))
     assert manifest["name"] == "Ma Bibliothèque"
+    assert manifest["version"] == "17.0.1.0.0"
     model = (tmp_path / "library_demo/models/library_book.py").read_text(encoding="utf-8")
     assert "pages = fields.Integer(" in model and "price = fields.Float(" in model

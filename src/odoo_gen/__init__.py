@@ -1,3 +1,3 @@
-"""Générateur de squelettes de modules Odoo 19."""
+"""Générateur de squelettes de modules Odoo (17.0, 18.0, 19.0)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

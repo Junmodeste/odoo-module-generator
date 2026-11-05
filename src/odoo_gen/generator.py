@@ -18,6 +18,9 @@ FIELD_TYPES = {
     "datetime": "Datetime",
 }
 
+# Versions d'Odoo ciblées par --odoo-version ; la dernière est la valeur par défaut.
+ODOO_VERSIONS = ("17.0", "18.0", "19.0")
+
 MODULE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 MODEL_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -63,6 +66,16 @@ class ModuleSpec:
     author: str
     model: str
     fields: list = field(default_factory=list)
+    odoo_version: str = ODOO_VERSIONS[-1]
+
+    @property
+    def odoo_major(self):
+        return int(self.odoo_version.split(".")[0])
+
+    @property
+    def list_tag(self):
+        # La vue liste s'appelle <tree> jusqu'à Odoo 17, <list> à partir de 18.
+        return "tree" if self.odoo_major < 18 else "list"
 
     @property
     def model_file(self):
@@ -83,6 +96,10 @@ class ModuleSpec:
             )
         if not MODEL_RE.match(self.model):
             raise GeneratorError(f"Invalid model name {self.model!r}: expected something like 'library.book'.")
+        if self.odoo_version not in ODOO_VERSIONS:
+            raise GeneratorError(
+                f"Unsupported Odoo version {self.odoo_version!r}: choose among {', '.join(ODOO_VERSIONS)}."
+            )
         if not self.title.strip():
             raise GeneratorError("The module title cannot be empty.")
         if not self.author.strip():
