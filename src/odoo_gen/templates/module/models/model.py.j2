@@ -7,5 +7,14 @@ class {{ spec.model_class }}(models.Model):
 
     name = fields.Char(required=True)
 {%- for field in spec.fields %}
+{%- if field.type == "many2one" %}
+    {{ field.name }} = fields.Many2one("{{ field.comodel }}", string={{ field.label | pyrepr }})
+{%- elif field.type == "selection" %}
+    {{ field.name }} = fields.Selection(
+        [{% for key, label in field.selection_items %}("{{ key }}", {{ label | pyrepr }}){% if not loop.last %}, {% endif %}{% endfor %}],
+        string={{ field.label | pyrepr }},
+    )
+{%- else %}
     {{ field.name }} = fields.{{ field.odoo_class }}(string={{ field.label | pyrepr }})
+{%- endif %}
 {%- endfor %}

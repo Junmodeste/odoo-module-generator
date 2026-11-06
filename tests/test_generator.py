@@ -99,7 +99,25 @@ def test_cli_rejects_unknown_odoo_version(tmp_path):
         cli.main(["new", "library_demo", "--no-input", "-o", str(tmp_path), "--odoo-version", "16.0"])
 
 
-@pytest.mark.parametrize("text", ["pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char"])
+def test_relational_and_selection_fields(tmp_path, spec):
+    spec.fields = [
+        parse_field("partner_id:many2one:res.partner"),
+        parse_field("state:selection:draft, in_progress,done"),
+    ]
+    path = generate(spec, tmp_path)
+    model_src = (path / "models/library_book.py").read_text(encoding="utf-8")
+    compile(model_src, "model.py", "exec")
+    assert 'partner_id = fields.Many2one("res.partner", string="Partner")' in model_src
+    assert '[("draft", "Draft"), ("in_progress", "In progress"), ("done", "Done")]' in model_src
+    search = ET.parse(path / "views/library_book_views.xml").getroot().find(".//search")
+    assert [f.get("name") for f in search.iter("field")] == ["name", "partner_id", "state"]
+
+
+@pytest.mark.parametrize("text", [
+    "pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char",
+    "partner_id:many2one", "partner_id:many2one:partner", "state:selection", "state:selection:a,,b",
+    "state:selection:Draft", "state:selection:a,a", "pages:integer:10",
+])
 def test_invalid_fields(text):
     with pytest.raises(GeneratorError):
         parse_field(text)

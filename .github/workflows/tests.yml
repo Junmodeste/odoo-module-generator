@@ -37,6 +37,7 @@ jobs:
           --title 'Bibliothèque "démo"' --model library.book
           --field pages:integer --field price:float --field available:boolean
           --field published_on:date --field summary:text
+          --field partner_id:many2one:res.partner --field state:selection:draft,in_progress,done
           --odoo-version ${{ matrix.odoo-version }}.0
       - name: Install and test on odoo:${{ matrix.odoo-version }} + postgres:16
         run: |

@@ -16,6 +16,9 @@ FIELD_TYPES = {
     "boolean": "Boolean",
     "date": "Date",
     "datetime": "Datetime",
+    # Types à paramètre : many2one:<modèle>, selection:<clé>,<clé>...
+    "many2one": "Many2one",
+    "selection": "Selection",
 }
 
 # Versions d'Odoo ciblées par --odoo-version ; la dernière est la valeur par défaut.
@@ -49,6 +52,8 @@ class GeneratorError(ValueError):
 class Field:
     name: str
     type: str
+    comodel: str = ""
+    selection: list = field(default_factory=list)
 
     @property
     def odoo_class(self):
@@ -56,7 +61,13 @@ class Field:
 
     @property
     def label(self):
-        return self.name.replace("_", " ").capitalize()
+        # Convention Odoo : partner_id s'affiche « Partner ».
+        base = self.name[:-3] if self.type == "many2one" and self.name.endswith("_id") else self.name
+        return base.replace("_", " ").capitalize()
+
+    @property
+    def selection_items(self):
+        return [(key, key.replace("_", " ").capitalize()) for key in self.selection]
 
 
 @dataclass
@@ -111,9 +122,11 @@ class ModuleSpec:
 
 
 def parse_field(text):
-    """Transforme 'pages:integer' en Field ; lève GeneratorError si invalide."""
-    name, sep, ftype = text.strip().partition(":")
-    name, ftype = name.strip(), ftype.strip().lower()
+    """Transforme 'pages:integer', 'partner_id:many2one:res.partner' ou
+    'state:selection:draft,done' en Field ; lève GeneratorError si invalide."""
+    name, sep, rest = text.strip().partition(":")
+    ftype, _, param = rest.partition(":")
+    name, ftype, param = name.strip(), ftype.strip().lower(), param.strip()
     if not sep or not name or not ftype:
         raise GeneratorError(f"Invalid field {text!r}: expected name:type, e.g. pages:integer.")
     if not FIELD_RE.match(name):
@@ -122,6 +135,19 @@ def parse_field(text):
         raise GeneratorError(f"Field name {name!r} is reserved ('name' is always generated).")
     if ftype not in FIELD_TYPES:
         raise GeneratorError(f"Unknown field type {ftype!r}: choose among {', '.join(FIELD_TYPES)}.")
+    if ftype == "many2one":
+        if not MODEL_RE.match(param):
+            raise GeneratorError(f"Invalid field {text!r}: expected name:many2one:model, e.g. partner_id:many2one:res.partner.")
+        return Field(name, ftype, comodel=param)
+    if ftype == "selection":
+        keys = [key.strip() for key in param.split(",")]
+        if not param or not all(FIELD_RE.match(key) for key in keys):
+            raise GeneratorError(f"Invalid field {text!r}: expected name:selection:key1,key2, e.g. state:selection:draft,done.")
+        if len(set(keys)) != len(keys):
+            raise GeneratorError(f"Invalid field {text!r}: duplicate selection key.")
+        return Field(name, ftype, selection=keys)
+    if param:
+        raise GeneratorError(f"Invalid field {text!r}: type {ftype!r} takes no parameter.")
     return Field(name, ftype)
 
 

@@ -27,6 +27,7 @@ def _ask(prompt, default):
 def _ask_fields():
     fields = []
     print(f"Fields as name:type ({', '.join(FIELD_TYPES)}); empty line to finish.")
+    print("  e.g. partner_id:many2one:res.partner, state:selection:draft,done")
     while True:
         answer = input("Field: ").strip()
         if not answer:
