@@ -109,12 +109,22 @@ class ModuleSpec:
     def model_description(self):
         return self.model.split(".")[-1].replace("_", " ").capitalize()
 
+    def is_self_relation(self, fld):
+        return fld.type == "many2many" and fld.comodel == self.model
+
     def relation_table(self, fld):
         # Même règle que l'ORM (17, 18, 19) : tables des deux modèles triées, suffixe _rel.
         if fld.relation:
             return fld.relation
+        if self.is_self_relation(fld):
+            # L'ORM refuse le nom implicite quand les deux modèles sont identiques : on en propose un.
+            return f"{self.model_file}_{fld.name.removesuffix('_ids')}_rel"
         tables = sorted([self.model_file, fld.comodel.replace(".", "_")])
         return "{}_{}_rel".format(*tables)
+
+    def relation_columns(self, fld):
+        # Many2many vers le modèle lui-même : les colonnes par défaut (<table>_id) seraient identiques.
+        return f"{self.model_file}_id", f"{fld.name.removesuffix('_ids')}_id"
 
     def validate(self):
         if not MODULE_RE.match(self.technical_name):
@@ -137,11 +147,20 @@ class ModuleSpec:
             raise GeneratorError(f"Duplicate field(s): {', '.join(sorted(duplicates))}.")
         many2many = [f for f in self.fields if f.type == "many2many"]
         for f in many2many:
-            # Colonnes par défaut <table>_id identiques des deux côtés : il faudrait column1/column2.
-            if f.comodel == self.model:
-                raise GeneratorError(f"Field {f.name!r}: a many2many to the model itself is not supported.")
             if f.relation == self.model_file:
                 raise GeneratorError(f"Field {f.name!r}: relation {f.relation!r} is the model's own table.")
+            if self.is_self_relation(f):
+                column1, column2 = self.relation_columns(f)
+                if column1 == column2:
+                    raise GeneratorError(
+                        f"Field {f.name!r}: both columns of the relation table would be {column1!r}; "
+                        "choose another field name (e.g. parent_ids)."
+                    )
+                if len(self.relation_table(f)) > 63:
+                    raise GeneratorError(
+                        f"Field {f.name!r}: relation table {self.relation_table(f)!r} exceeds 63 characters; "
+                        "give a shorter one with name:many2many:model:relation."
+                    )
         # Deux many2many sur la même table de relation partageraient leurs données.
         tables = [self.relation_table(f) for f in many2many]
         shared = {t for t in tables if tables.count(t) > 1}

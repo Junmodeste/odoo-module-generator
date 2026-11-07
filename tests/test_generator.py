@@ -146,12 +146,35 @@ def test_many2many_explicit_relation(tmp_path, spec):
     )
 
 
+def test_many2many_to_model_itself(tmp_path, spec):
+    spec.fields = [
+        parse_field("related_ids:many2many:library.book"),
+        parse_field("sequel_ids:many2many:library.book:library_book_sequel_link"),
+    ]
+    model_src = (generate(spec, tmp_path) / "models/library_book.py").read_text(encoding="utf-8")
+    compile(model_src, "model.py", "exec")
+    tree = ast.parse(model_src)
+    calls = {
+        node.targets[0].id: {kw.arg: kw.value.value for kw in node.value.keywords}
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and node.value.func.attr == "Many2many"
+    }
+    assert calls["related_ids"] == {
+        "relation": "library_book_related_rel", "column1": "library_book_id", "column2": "related_id", "string": "Relateds",
+    }
+    assert calls["sequel_ids"]["relation"] == "library_book_sequel_link"
+    assert calls["sequel_ids"]["column2"] == "sequel_id"
+
+
 @pytest.mark.parametrize("fields_text, message", [
     # Table explicite identique au nom par défaut de l'autre champ.
     (["tag_ids:many2many:res.partner", "reader_ids:many2many:res.partner:library_book_res_partner_rel"], "share"),
     (["tag_ids:many2many:res.partner:book_rel", "reader_ids:many2many:res.users:book_rel"], "share"),
-    (["related_ids:many2many:library.book:library_book_related_rel"], "model itself"),
     (["tag_ids:many2many:res.partner:library_book"], "own table"),
+    # Many2many vers le modèle lui-même.
+    (["library_book_ids:many2many:library.book"], "both columns"),
+    (["related_ids:many2many:library.book", "other_ids:many2many:library.book:library_book_related_rel"], "share"),
+    (["r" * 52 + "_ids:many2many:library.book"], "63 characters"),
 ])
 def test_invalid_many2many_relations(tmp_path, spec, fields_text, message):
     spec.fields = [parse_field(text) for text in fields_text]

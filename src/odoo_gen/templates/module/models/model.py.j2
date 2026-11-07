@@ -7,7 +7,16 @@ class {{ spec.model_class }}(models.Model):
 
     name = fields.Char(required=True)
 {%- for field in spec.fields %}
-{%- if field.type == "many2many" and field.relation %}
+{%- if spec.is_self_relation(field) %}
+{%- set column1, column2 = spec.relation_columns(field) %}
+    {{ field.name }} = fields.Many2many(
+        "{{ field.comodel }}",
+        relation="{{ spec.relation_table(field) }}",
+        column1="{{ column1 }}",
+        column2="{{ column2 }}",
+        string={{ field.label | pyrepr }},
+    )
+{%- elif field.type == "many2many" and field.relation %}
     {{ field.name }} = fields.Many2many("{{ field.comodel }}", relation="{{ field.relation }}", string={{ field.label | pyrepr }})
 {%- elif field.type in ("many2one", "many2many") %}
     {{ field.name }} = fields.{{ field.odoo_class }}("{{ field.comodel }}", string={{ field.label | pyrepr }})
