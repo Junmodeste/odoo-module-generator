@@ -128,7 +128,34 @@ def test_many2many_field(tmp_path, spec):
 
 def test_two_many2many_to_same_comodel_rejected(tmp_path, spec):
     spec.fields = [parse_field("tag_ids:many2many:res.partner"), parse_field("reader_ids:many2many:res.partner")]
-    with pytest.raises(GeneratorError, match="one many2many field per comodel"):
+    with pytest.raises(GeneratorError, match="share the relation table library_book_res_partner_rel"):
+        generate(spec, tmp_path)
+
+
+def test_many2many_explicit_relation(tmp_path, spec):
+    spec.fields = [
+        parse_field("tag_ids:many2many:res.partner.category"),
+        parse_field("genre_ids:many2many:res.partner.category:library_book_genre_rel"),
+    ]
+    model_src = (generate(spec, tmp_path) / "models/library_book.py").read_text(encoding="utf-8")
+    compile(model_src, "model.py", "exec")
+    assert 'tag_ids = fields.Many2many("res.partner.category", string="Tags")' in model_src
+    assert (
+        'genre_ids = fields.Many2many("res.partner.category", relation="library_book_genre_rel", string="Genres")'
+        in model_src
+    )
+
+
+@pytest.mark.parametrize("fields_text, message", [
+    # Table explicite identique au nom par défaut de l'autre champ.
+    (["tag_ids:many2many:res.partner", "reader_ids:many2many:res.partner:library_book_res_partner_rel"], "share"),
+    (["tag_ids:many2many:res.partner:book_rel", "reader_ids:many2many:res.users:book_rel"], "share"),
+    (["related_ids:many2many:library.book:library_book_related_rel"], "model itself"),
+    (["tag_ids:many2many:res.partner:library_book"], "own table"),
+])
+def test_invalid_many2many_relations(tmp_path, spec, fields_text, message):
+    spec.fields = [parse_field(text) for text in fields_text]
+    with pytest.raises(GeneratorError, match=message):
         generate(spec, tmp_path)
 
 
@@ -136,6 +163,8 @@ def test_two_many2many_to_same_comodel_rejected(tmp_path, spec):
     "pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char",
     "partner_id:many2one", "partner_id:many2one:partner", "tag_ids:many2many", "state:selection", "state:selection:a,,b",
     "state:selection:Draft", "state:selection:a,a", "pages:integer:10",
+    "tag_ids:many2many:res.partner:", "tag_ids:many2many:res.partner:Book-Rel", "tag_ids:many2many:res.partner:" + "x" * 64,
+    "partner_id:many2one:res.partner:rel",
 ])
 def test_invalid_fields(text):
     with pytest.raises(GeneratorError):

@@ -58,6 +58,7 @@ class Field:
     type: str
     comodel: str = ""
     selection: list = field(default_factory=list)
+    relation: str = ""  # table de relation explicite d'un many2many (sinon nom par défaut d'Odoo)
 
     @property
     def odoo_class(self):
@@ -108,6 +109,13 @@ class ModuleSpec:
     def model_description(self):
         return self.model.split(".")[-1].replace("_", " ").capitalize()
 
+    def relation_table(self, fld):
+        # Même règle que l'ORM (17, 18, 19) : tables des deux modèles triées, suffixe _rel.
+        if fld.relation:
+            return fld.relation
+        tables = sorted([self.model_file, fld.comodel.replace(".", "_")])
+        return "{}_{}_rel".format(*tables)
+
     def validate(self):
         if not MODULE_RE.match(self.technical_name):
             raise GeneratorError(
@@ -127,17 +135,28 @@ class ModuleSpec:
         duplicates = {n for n in names if names.count(n) > 1}
         if duplicates:
             raise GeneratorError(f"Duplicate field(s): {', '.join(sorted(duplicates))}.")
-        # Sans relation explicite, deux many2many vers le même comodèle partageraient la même table.
-        comodels = [f.comodel for f in self.fields if f.type == "many2many"]
-        shared = {c for c in comodels if comodels.count(c) > 1}
+        many2many = [f for f in self.fields if f.type == "many2many"]
+        for f in many2many:
+            # Colonnes par défaut <table>_id identiques des deux côtés : il faudrait column1/column2.
+            if f.comodel == self.model:
+                raise GeneratorError(f"Field {f.name!r}: a many2many to the model itself is not supported.")
+            if f.relation == self.model_file:
+                raise GeneratorError(f"Field {f.name!r}: relation {f.relation!r} is the model's own table.")
+        # Deux many2many sur la même table de relation partageraient leurs données.
+        tables = [self.relation_table(f) for f in many2many]
+        shared = {t for t in tables if tables.count(t) > 1}
         if shared:
-            raise GeneratorError(f"Only one many2many field per comodel is supported: {', '.join(sorted(shared))}.")
+            raise GeneratorError(
+                f"Several many2many fields would share the relation table {', '.join(sorted(shared))}: "
+                "give each one its own table with name:many2many:model:relation."
+            )
 
 
 def parse_field(text):
     """Transforme 'pages:integer', 'partner_id:many2one:res.partner',
-    'tag_ids:many2many:res.partner.category' ou 'state:selection:draft,done'
-    en Field ; lève GeneratorError si invalide."""
+    'tag_ids:many2many:res.partner.category' (table de relation optionnelle :
+    'reader_ids:many2many:res.partner:library_book_reader_rel') ou
+    'state:selection:draft,done' en Field ; lève GeneratorError si invalide."""
     name, sep, rest = text.strip().partition(":")
     ftype, _, param = rest.partition(":")
     name, ftype, param = name.strip(), ftype.strip().lower(), param.strip()
@@ -149,6 +168,18 @@ def parse_field(text):
         raise GeneratorError(f"Field name {name!r} is reserved ('name' is always generated).")
     if ftype not in FIELD_TYPES:
         raise GeneratorError(f"Unknown field type {ftype!r}: choose among {', '.join(FIELD_TYPES)}.")
+    if ftype == "many2many":
+        comodel, _, relation = (part.strip() for part in param.partition(":"))
+        if not MODEL_RE.match(comodel):
+            raise GeneratorError(
+                f"Invalid field {text!r}: expected name:many2many:model[:relation], e.g. tag_ids:many2many:res.partner.category."
+            )
+        # Nom de table PostgreSQL valide pour check_pg_name d'Odoo (63 caractères au plus).
+        if ":" in param and (not FIELD_RE.match(relation) or len(relation) > 63):
+            raise GeneratorError(
+                f"Invalid relation table {relation!r}: use lowercase letters, digits and underscores (63 characters max)."
+            )
+        return Field(name, ftype, comodel=comodel, relation=relation)
     if ftype in RELATIONAL_TYPES:
         if not MODEL_RE.match(param):
             example = "partner_id:many2one:res.partner" if ftype == "many2one" else "tag_ids:many2many:res.partner.category"

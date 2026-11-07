@@ -7,7 +7,9 @@ class {{ spec.model_class }}(models.Model):
 
     name = fields.Char(required=True)
 {%- for field in spec.fields %}
-{%- if field.type in ("many2one", "many2many") %}
+{%- if field.type == "many2many" and field.relation %}
+    {{ field.name }} = fields.Many2many("{{ field.comodel }}", relation="{{ field.relation }}", string={{ field.label | pyrepr }})
+{%- elif field.type in ("many2one", "many2many") %}
     {{ field.name }} = fields.{{ field.odoo_class }}("{{ field.comodel }}", string={{ field.label | pyrepr }})
 {%- elif field.type == "selection" %}
     {{ field.name }} = fields.Selection(

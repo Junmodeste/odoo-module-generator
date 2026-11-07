@@ -51,7 +51,7 @@ library_demo/
 2. `pip install .`
 3. `odoo-gen new mon_module` (ou `odoo-gen new mon_module --no-input --model x.y --field note:text`)
 
-Options : `--title`, `--author`, `--model`, `--odoo-version 17.0|18.0|19.0` (défaut 19.0), `--field nom:type` (répétable), `-o/--output`, `--no-input`. Types : `char`, `text`, `html`, `integer`, `float`, `boolean`, `date`, `datetime`, `many2one:<modèle>` (ex. `partner_id:many2one:res.partner`), `many2many:<modèle>` (ex. `tag_ids:many2many:res.partner.category`, affiché en étiquettes ; un seul `many2many` par comodèle), `selection:<clé>,<clé>` (ex. `state:selection:draft,done`, libellés déduits des clés). Le champ `name` est toujours créé. Le manifeste dépend de `base` seul : pour un `many2one` ou un `many2many` vers un modèle d'un autre module (ex. `product.product`), ajoutez ce module (`product`) dans `depends`.
+Options : `--title`, `--author`, `--model`, `--odoo-version 17.0|18.0|19.0` (défaut 19.0), `--field nom:type` (répétable), `-o/--output`, `--no-input`. Types : `char`, `text`, `html`, `integer`, `float`, `boolean`, `date`, `datetime`, `many2one:<modèle>` (ex. `partner_id:many2one:res.partner`), `many2many:<modèle>` (ex. `tag_ids:many2many:res.partner.category`, affiché en étiquettes ; pour plusieurs `many2many` vers le même comodèle, donnez à chacun sa table de relation : `genre_ids:many2many:res.partner.category:library_book_genre_rel`), `selection:<clé>,<clé>` (ex. `state:selection:draft,done`, libellés déduits des clés). Le champ `name` est toujours créé. Le manifeste dépend de `base` seul : pour un `many2one` ou un `many2many` vers un modèle d'un autre module (ex. `product.product`), ajoutez ce module (`product`) dans `depends`.
 
 Tests de l'outil : `pip install .[test]` puis `pytest`.
 
@@ -83,7 +83,7 @@ It asks a few questions (title, author, model, `name:type` fields) or runs non-i
 2. `pip install .`
 3. `odoo-gen new my_module` (or `odoo-gen new my_module --no-input --model x.y --field note:text`)
 
-Options: `--title`, `--author`, `--model`, `--odoo-version 17.0|18.0|19.0` (default 19.0), `--field name:type` (repeatable), `-o/--output`, `--no-input`. Types: `char`, `text`, `html`, `integer`, `float`, `boolean`, `date`, `datetime`, `many2one:<model>` (e.g. `partner_id:many2one:res.partner`), `many2many:<model>` (e.g. `tag_ids:many2many:res.partner.category`, shown as tags; one `many2many` per comodel), `selection:<key>,<key>` (e.g. `state:selection:draft,done`, labels derived from keys). A `name` field is always created. The manifest only depends on `base`: for a `many2one` or `many2many` to a model from another module (e.g. `product.product`), add that module (`product`) to `depends`.
+Options: `--title`, `--author`, `--model`, `--odoo-version 17.0|18.0|19.0` (default 19.0), `--field name:type` (repeatable), `-o/--output`, `--no-input`. Types: `char`, `text`, `html`, `integer`, `float`, `boolean`, `date`, `datetime`, `many2one:<model>` (e.g. `partner_id:many2one:res.partner`), `many2many:<model>` (e.g. `tag_ids:many2many:res.partner.category`, shown as tags; for several `many2many` to the same comodel, give each one its own relation table: `genre_ids:many2many:res.partner.category:library_book_genre_rel`), `selection:<key>,<key>` (e.g. `state:selection:draft,done`, labels derived from keys). A `name` field is always created. The manifest only depends on `base`: for a `many2one` or `many2many` to a model from another module (e.g. `product.product`), add that module (`product`) to `depends`.
 
 Tool tests: `pip install .[test]` then `pytest`.
 
