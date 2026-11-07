@@ -7,7 +7,7 @@
             <{{ spec.list_tag }}>
                 <field name="name"/>
 {%- for field in spec.fields if field.type not in ("text", "html") %}
-                <field name="{{ field.name }}"/>
+                <field name="{{ field.name }}"{% if field.type == "many2many" %} widget="many2many_tags"{% endif %}/>
 {%- endfor %}
             </{{ spec.list_tag }}>
         </field>
@@ -22,7 +22,7 @@
                     <group>
                         <field name="name"/>
 {%- for field in spec.fields %}
-                        <field name="{{ field.name }}"/>
+                        <field name="{{ field.name }}"{% if field.type == "many2many" %} widget="many2many_tags"{% endif %}/>
 {%- endfor %}
                     </group>
                 </sheet>
@@ -36,7 +36,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
-{%- for field in spec.fields if field.type in ("char", "text", "many2one", "selection") %}
+{%- for field in spec.fields if field.type in ("char", "text", "many2one", "many2many", "selection") %}
                 <field name="{{ field.name }}"/>
 {%- endfor %}
             </search>

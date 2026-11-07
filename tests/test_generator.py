@@ -113,9 +113,28 @@ def test_relational_and_selection_fields(tmp_path, spec):
     assert [f.get("name") for f in search.iter("field")] == ["name", "partner_id", "state"]
 
 
+def test_many2many_field(tmp_path, spec):
+    spec.fields = [parse_field("tag_ids:many2many:res.partner.category")]
+    path = generate(spec, tmp_path)
+    model_src = (path / "models/library_book.py").read_text(encoding="utf-8")
+    compile(model_src, "model.py", "exec")
+    assert 'tag_ids = fields.Many2many("res.partner.category", string="Tags")' in model_src
+    root = ET.parse(path / "views/library_book_views.xml").getroot()
+    for view in ("list", "form"):
+        field_node = root.find(f".//{view}//field[@name='tag_ids']")
+        assert field_node.get("widget") == "many2many_tags"
+    assert root.find(".//search/field[@name='tag_ids']") is not None
+
+
+def test_two_many2many_to_same_comodel_rejected(tmp_path, spec):
+    spec.fields = [parse_field("tag_ids:many2many:res.partner"), parse_field("reader_ids:many2many:res.partner")]
+    with pytest.raises(GeneratorError, match="one many2many field per comodel"):
+        generate(spec, tmp_path)
+
+
 @pytest.mark.parametrize("text", [
     "pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char",
-    "partner_id:many2one", "partner_id:many2one:partner", "state:selection", "state:selection:a,,b",
+    "partner_id:many2one", "partner_id:many2one:partner", "tag_ids:many2many", "state:selection", "state:selection:a,,b",
     "state:selection:Draft", "state:selection:a,a", "pages:integer:10",
 ])
 def test_invalid_fields(text):

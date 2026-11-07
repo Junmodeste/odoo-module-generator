@@ -16,10 +16,14 @@ FIELD_TYPES = {
     "boolean": "Boolean",
     "date": "Date",
     "datetime": "Datetime",
-    # Types à paramètre : many2one:<modèle>, selection:<clé>,<clé>...
+    # Types à paramètre : many2one:<modèle>, many2many:<modèle>, selection:<clé>,<clé>...
     "many2one": "Many2one",
+    "many2many": "Many2many",
     "selection": "Selection",
 }
+
+# Types relationnels qui prennent un comodèle en paramètre.
+RELATIONAL_TYPES = ("many2one", "many2many")
 
 # Versions d'Odoo ciblées par --odoo-version ; la dernière est la valeur par défaut.
 ODOO_VERSIONS = ("17.0", "18.0", "19.0")
@@ -61,8 +65,12 @@ class Field:
 
     @property
     def label(self):
-        # Convention Odoo : partner_id s'affiche « Partner ».
-        base = self.name[:-3] if self.type == "many2one" and self.name.endswith("_id") else self.name
+        # Convention Odoo : partner_id s'affiche « Partner », tag_ids « Tags ».
+        base = self.name
+        if self.type == "many2one" and base.endswith("_id"):
+            base = base[:-3]
+        elif self.type == "many2many" and base.endswith("_ids"):
+            base = base[:-4] + "s"
         return base.replace("_", " ").capitalize()
 
     @property
@@ -119,11 +127,17 @@ class ModuleSpec:
         duplicates = {n for n in names if names.count(n) > 1}
         if duplicates:
             raise GeneratorError(f"Duplicate field(s): {', '.join(sorted(duplicates))}.")
+        # Sans relation explicite, deux many2many vers le même comodèle partageraient la même table.
+        comodels = [f.comodel for f in self.fields if f.type == "many2many"]
+        shared = {c for c in comodels if comodels.count(c) > 1}
+        if shared:
+            raise GeneratorError(f"Only one many2many field per comodel is supported: {', '.join(sorted(shared))}.")
 
 
 def parse_field(text):
-    """Transforme 'pages:integer', 'partner_id:many2one:res.partner' ou
-    'state:selection:draft,done' en Field ; lève GeneratorError si invalide."""
+    """Transforme 'pages:integer', 'partner_id:many2one:res.partner',
+    'tag_ids:many2many:res.partner.category' ou 'state:selection:draft,done'
+    en Field ; lève GeneratorError si invalide."""
     name, sep, rest = text.strip().partition(":")
     ftype, _, param = rest.partition(":")
     name, ftype, param = name.strip(), ftype.strip().lower(), param.strip()
@@ -135,9 +149,10 @@ def parse_field(text):
         raise GeneratorError(f"Field name {name!r} is reserved ('name' is always generated).")
     if ftype not in FIELD_TYPES:
         raise GeneratorError(f"Unknown field type {ftype!r}: choose among {', '.join(FIELD_TYPES)}.")
-    if ftype == "many2one":
+    if ftype in RELATIONAL_TYPES:
         if not MODEL_RE.match(param):
-            raise GeneratorError(f"Invalid field {text!r}: expected name:many2one:model, e.g. partner_id:many2one:res.partner.")
+            example = "partner_id:many2one:res.partner" if ftype == "many2one" else "tag_ids:many2many:res.partner.category"
+            raise GeneratorError(f"Invalid field {text!r}: expected name:{ftype}:model, e.g. {example}.")
         return Field(name, ftype, comodel=param)
     if ftype == "selection":
         keys = [key.strip() for key in param.split(",")]
