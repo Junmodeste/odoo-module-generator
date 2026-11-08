@@ -54,6 +54,25 @@ class GeneratorError(ValueError):
     """Paramètre invalide ou dossier de sortie déjà présent."""
 
 
+_IRREGULAR_PLURALS = {"child": "children", "person": "people", "man": "men", "woman": "women"}
+
+
+def _plural(name):
+    """Pluralise le dernier mot anglais d'un nom technique (tag → tags, child → children)."""
+    head, _, word = name.rpartition("_")
+    if word in _IRREGULAR_PLURALS:
+        word = _IRREGULAR_PLURALS[word]
+    elif word.endswith("ed"):  # participe/adjectif : related, linked restent tels quels
+        pass
+    elif word.endswith("y") and word[-2:-1] not in ("a", "e", "i", "o", "u", ""):
+        word = word[:-1] + "ies"
+    elif word.endswith(("s", "x", "z", "ch", "sh")):
+        word += "es"
+    else:
+        word += "s"
+    return f"{head}_{word}" if head else word
+
+
 @dataclass
 class Field:
     name: str
@@ -74,7 +93,7 @@ class Field:
         if self.type == "many2one" and base.endswith("_id"):
             base = base[:-3]
         elif self.type in ("many2many", "one2many") and base.endswith("_ids"):
-            base = base[:-4] + "s"
+            base = _plural(base[:-4])
         return base.replace("_", " ").capitalize()
 
     @property

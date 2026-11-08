@@ -160,7 +160,7 @@ def test_many2many_to_model_itself(tmp_path, spec):
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and node.value.func.attr == "Many2many"
     }
     assert calls["related_ids"] == {
-        "relation": "library_book_related_rel", "column1": "library_book_id", "column2": "related_id", "string": "Relateds",
+        "relation": "library_book_related_rel", "column1": "library_book_id", "column2": "related_id", "string": "Related",
     }
     assert calls["sequel_ids"]["relation"] == "library_book_sequel_link"
     assert calls["sequel_ids"]["column2"] == "sequel_id"
@@ -190,7 +190,7 @@ def test_one2many_field(tmp_path, spec):
     path = generate(spec, tmp_path)
     model_src = (path / "models/library_book.py").read_text(encoding="utf-8")
     compile(model_src, "model.py", "exec")
-    assert 'child_ids = fields.One2many("library.book", "parent_id", string="Childs")' in model_src
+    assert 'child_ids = fields.One2many("library.book", "parent_id", string="Children")' in model_src
     root = ET.parse(path / "views/library_book_views.xml").getroot()
     assert root.find(".//form//field[@name='child_ids']") is not None
     assert root.find(".//list//field[@name='child_ids']") is None
@@ -273,3 +273,17 @@ def test_cli_interactive(tmp_path, monkeypatch):
     assert manifest["version"] == "17.0.1.0.0"
     model = (tmp_path / "library_demo/models/library_book.py").read_text(encoding="utf-8")
     assert "pages = fields.Integer(" in model and "price = fields.Float(" in model
+
+
+@pytest.mark.parametrize("text, label", [
+    ("tag_ids:many2many:res.partner.category", "Tags"),
+    ("child_ids:one2many:library.book:parent_id", "Children"),
+    ("related_ids:many2many:library.book", "Related"),
+    ("category_ids:many2many:product.category", "Categories"),
+    ("day_ids:many2many:res.partner", "Days"),
+    ("box_ids:many2many:res.partner", "Boxes"),
+    ("sale_branch_ids:many2many:res.partner", "Sale branches"),
+    ("partner_id:many2one:res.partner", "Partner"),
+])
+def test_relational_labels(text, label):
+    assert parse_field(text).label == label
