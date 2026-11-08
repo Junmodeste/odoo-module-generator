@@ -16,9 +16,11 @@ FIELD_TYPES = {
     "boolean": "Boolean",
     "date": "Date",
     "datetime": "Datetime",
-    # Types à paramètre : many2one:<modèle>, many2many:<modèle>, selection:<clé>,<clé>...
+    # Types à paramètre : many2one:<modèle>, many2many:<modèle>, one2many:<modèle>:<inverse>,
+    # selection:<clé>,<clé>...
     "many2one": "Many2one",
     "many2many": "Many2many",
+    "one2many": "One2many",
     "selection": "Selection",
 }
 
@@ -59,6 +61,7 @@ class Field:
     comodel: str = ""
     selection: list = field(default_factory=list)
     relation: str = ""  # table de relation explicite d'un many2many (sinon nom par défaut d'Odoo)
+    inverse: str = ""  # many2one inverse d'un one2many
 
     @property
     def odoo_class(self):
@@ -70,7 +73,7 @@ class Field:
         base = self.name
         if self.type == "many2one" and base.endswith("_id"):
             base = base[:-3]
-        elif self.type == "many2many" and base.endswith("_ids"):
+        elif self.type in ("many2many", "one2many") and base.endswith("_ids"):
             base = base[:-4] + "s"
         return base.replace("_", " ").capitalize()
 
@@ -145,6 +148,23 @@ class ModuleSpec:
         duplicates = {n for n in names if names.count(n) > 1}
         if duplicates:
             raise GeneratorError(f"Duplicate field(s): {', '.join(sorted(duplicates))}.")
+        by_name = {f.name: f for f in self.fields}
+        for f in self.fields:
+            if f.type != "one2many":
+                continue
+            # L'ORM lit comodel._fields[inverse] au chargement : sans many2one inverse, l'installation échoue.
+            # Le générateur ne crée qu'un modèle, et un modèle existant n'a pas de many2one vers lui.
+            if f.comodel != self.model:
+                raise GeneratorError(
+                    f"Field {f.name!r}: one2many only supports the generated model {self.model!r} as comodel "
+                    "(its inverse many2one must exist on the comodel)."
+                )
+            inverse = by_name.get(f.inverse)
+            if not inverse or inverse.type != "many2one" or inverse.comodel != self.model:
+                raise GeneratorError(
+                    f"Field {f.name!r}: inverse {f.inverse!r} must be a many2one field to {self.model!r} "
+                    f"in the same module, e.g. {f.inverse}:many2one:{self.model}."
+                )
         many2many = [f for f in self.fields if f.type == "many2many"]
         for f in many2many:
             if f.relation == self.model_file:
@@ -174,7 +194,8 @@ class ModuleSpec:
 def parse_field(text):
     """Transforme 'pages:integer', 'partner_id:many2one:res.partner',
     'tag_ids:many2many:res.partner.category' (table de relation optionnelle :
-    'reader_ids:many2many:res.partner:library_book_reader_rel') ou
+    'reader_ids:many2many:res.partner:library_book_reader_rel'),
+    'child_ids:one2many:library.book:parent_id' ou
     'state:selection:draft,done' en Field ; lève GeneratorError si invalide."""
     name, sep, rest = text.strip().partition(":")
     ftype, _, param = rest.partition(":")
@@ -199,6 +220,14 @@ def parse_field(text):
                 f"Invalid relation table {relation!r}: use lowercase letters, digits and underscores (63 characters max)."
             )
         return Field(name, ftype, comodel=comodel, relation=relation)
+    if ftype == "one2many":
+        comodel, _, inverse = (part.strip() for part in param.partition(":"))
+        if not MODEL_RE.match(comodel) or not FIELD_RE.match(inverse):
+            raise GeneratorError(
+                f"Invalid field {text!r}: expected name:one2many:model:inverse_field, "
+                "e.g. child_ids:one2many:library.book:parent_id."
+            )
+        return Field(name, ftype, comodel=comodel, inverse=inverse)
     if ftype in RELATIONAL_TYPES:
         if not MODEL_RE.match(param):
             example = "partner_id:many2one:res.partner" if ftype == "many2one" else "tag_ids:many2many:res.partner.category"

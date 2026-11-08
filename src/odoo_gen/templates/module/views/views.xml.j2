@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <{{ spec.list_tag }}>
                 <field name="name"/>
-{%- for field in spec.fields if field.type not in ("text", "html") %}
+{%- for field in spec.fields if field.type not in ("text", "html", "one2many") %}
                 <field name="{{ field.name }}"{% if field.type == "many2many" %} widget="many2many_tags"{% endif %}/>
 {%- endfor %}
             </{{ spec.list_tag }}>

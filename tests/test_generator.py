@@ -182,12 +182,41 @@ def test_invalid_many2many_relations(tmp_path, spec, fields_text, message):
         generate(spec, tmp_path)
 
 
+def test_one2many_field(tmp_path, spec):
+    spec.fields = [
+        parse_field("parent_id:many2one:library.book"),
+        parse_field("child_ids:one2many:library.book:parent_id"),
+    ]
+    path = generate(spec, tmp_path)
+    model_src = (path / "models/library_book.py").read_text(encoding="utf-8")
+    compile(model_src, "model.py", "exec")
+    assert 'child_ids = fields.One2many("library.book", "parent_id", string="Childs")' in model_src
+    root = ET.parse(path / "views/library_book_views.xml").getroot()
+    assert root.find(".//form//field[@name='child_ids']") is not None
+    assert root.find(".//list//field[@name='child_ids']") is None
+    assert root.find(".//search/field[@name='child_ids']") is None
+
+
+@pytest.mark.parametrize("fields_text, message", [
+    (["child_ids:one2many:res.partner:parent_id"], "only supports the generated model"),
+    (["child_ids:one2many:library.book:parent_id"], "inverse 'parent_id'"),
+    (["parent_id:many2one:res.partner", "child_ids:one2many:library.book:parent_id"], "inverse 'parent_id'"),
+    (["pages:integer", "child_ids:one2many:library.book:pages"], "inverse 'pages'"),
+])
+def test_invalid_one2many(tmp_path, spec, fields_text, message):
+    spec.fields = [parse_field(text) for text in fields_text]
+    with pytest.raises(GeneratorError, match=message):
+        generate(spec, tmp_path)
+
+
 @pytest.mark.parametrize("text", [
     "pages", "pages:", "Pages:integer", "name:char", "x:money", "2x:char",
     "partner_id:many2one", "partner_id:many2one:partner", "tag_ids:many2many", "state:selection", "state:selection:a,,b",
     "state:selection:Draft", "state:selection:a,a", "pages:integer:10",
     "tag_ids:many2many:res.partner:", "tag_ids:many2many:res.partner:Book-Rel", "tag_ids:many2many:res.partner:" + "x" * 64,
     "partner_id:many2one:res.partner:rel",
+    "child_ids:one2many", "child_ids:one2many:library.book", "child_ids:one2many:library.book:",
+    "child_ids:one2many:book:parent_id",
 ])
 def test_invalid_fields(text):
     with pytest.raises(GeneratorError):

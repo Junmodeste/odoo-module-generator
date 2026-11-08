@@ -28,6 +28,8 @@ def _ask_fields():
     fields = []
     print(f"Fields as name:type ({', '.join(FIELD_TYPES)}); empty line to finish.")
     print("  e.g. partner_id:many2one:res.partner, tag_ids:many2many:res.partner.category, state:selection:draft,done")
+    print("  one2many needs its inverse many2one on the same model: parent_id:many2one:library.book,")
+    print("  then child_ids:one2many:library.book:parent_id")
     while True:
         answer = input("Field: ").strip()
         if not answer:

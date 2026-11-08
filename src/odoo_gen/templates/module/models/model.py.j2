@@ -18,6 +18,8 @@ class {{ spec.model_class }}(models.Model):
     )
 {%- elif field.type == "many2many" and field.relation %}
     {{ field.name }} = fields.Many2many("{{ field.comodel }}", relation="{{ field.relation }}", string={{ field.label | pyrepr }})
+{%- elif field.type == "one2many" %}
+    {{ field.name }} = fields.One2many("{{ field.comodel }}", "{{ field.inverse }}", string={{ field.label | pyrepr }})
 {%- elif field.type in ("many2one", "many2many") %}
     {{ field.name }} = fields.{{ field.odoo_class }}("{{ field.comodel }}", string={{ field.label | pyrepr }})
 {%- elif field.type == "selection" %}

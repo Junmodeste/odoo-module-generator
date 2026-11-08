@@ -40,6 +40,7 @@ jobs:
           --field partner_id:many2one:res.partner --field tag_ids:many2many:res.partner.category
           --field genre_ids:many2many:res.partner.category:library_book_genre_rel
           --field related_book_ids:many2many:library.book
+          --field parent_id:many2one:library.book --field child_ids:one2many:library.book:parent_id
           --field state:selection:draft,in_progress,done
           --odoo-version ${{ matrix.odoo-version }}.0
       - name: Install and test on odoo:${{ matrix.odoo-version }} + postgres:16
